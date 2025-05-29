@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Supplies Inventory Report</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #ffffff;}
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid #aaa; padding: 5px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    tfoot td { font-weight: bold; background-color: yellow; }
+    input[type="number"] { width: 70px; }
+    input[readonly] { background-color: #eee; }
+    .section-header { background-color: #ddd; font-weight: bold; text-align: left; padding-left: 10px; }
+    .divider-row td { background-color: #ccc; height: 2px; padding: 0; border: none; }
+    .delete-btn { cursor: pointer; color: red; font-weight: bold; }
+    
+    .footer {
+  text-align: center;
+  padding: 15px;
+  background-color: #f0f0f0;
+  color: #333;
+  font-size: 14px;
+  margin-top: 40px;
+  border-top: 1px solid #ccc;
+}
+
+  </style>
+</head>
+<body>
+  <nav>
+    <ul>
+        <li><button onclick="result"><a href="index.html">Back</a></button></li>
+    </ul>
+</nav>
+<h2>Supplies Inventory Summary</h2>
+<label>Month and Year:
+  <input type="month" id="reportMonth" onchange="loadData()">
+</label>
+
+<table id="inventoryTable">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Description</th>
+      <th>Unit</th>
+      <th>Unit Cost</th>
+      <th colspan="3">Beginning Balance</th>
+      <th colspan="3">Receipts</th>
+      <th colspan="3">Total</th>
+      <th colspan="3">Issued</th>
+      <th colspan="3">Ending Balance</th>
+      <th>🗑️</th>
+    </tr>
+    <tr>
+      <th colspan="4"></th>
+      <th>Qty</th><th>Cost</th><th>Amount</th>
+      <th>Qty</th><th>Cost</th><th>Amount</th>
+      <th>Qty</th><th>Cost</th><th>Amount</th>
+      <th>Qty</th><th>Cost</th><th>Amount</th>
+      <th>Qty</th><th>Cost</th><th>Amount</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+  <tfoot>
+    <tr>
+      <td colspan="7">TOTAL</td>
+      <td id="totalReceiptsQty"></td><td></td><td id="totalReceiptsAmount"></td>
+      <td id="totalTotalQty"></td><td></td><td id="totalTotalAmount"></td>
+      <td id="totalIssuedQty"></td><td></td><td id="totalIssuedAmount"></td>
+      <td id="totalEndingQty"></td><td></td><td id="totalEndingAmount"></td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
+<br>
+<label>
+  Section:
+  <select id="sectionSelect">
+    <option value="Other Supplies">Other Supplies</option>
+    <option value="Office Supplies">Office Supplies</option>
+  </select>
+</label>
+<button onclick="handleAddItem()">➕ Add Item</button>
+<button onclick="saveData()">💾 Save</button>
+<button onclick="exportToExcel()">📥 Export to Excel</button>
+
+<script>
+    const groupedItems = [
+      {
+        label: 'Other Supplies',
+        items: [
+          { item: 'Air Freshener', desc: 'ocean scape, 320ml', unit: 'can', cost: 293.00 },
+          { item: 'Alcohol', desc: 'Isopropyl 70% solution', unit: 'gallon', cost: 660.00 },
+          { item: 'Battery', desc: 'AA 4\'s', unit: 'pack', cost: 117.00 },
+          { item: 'Battery', desc: 'AAA 4\'s', unit: 'pack', cost: 150.00 },
+          { item: 'Bleaching Liquid', desc: 'Original 100ml', unit: 'bottle', cost: 52.00 },
+          { item: 'Broom', desc: 'Native, Wood Handle', unit: 'piece', cost: 234.00 },
+          { item: 'Brush', desc: 'Laundry Brush with Handle', unit: 'piece', cost: 65.00 },
+          { item: 'Dishwashing Liquid', desc: '475 ml, lemon', unit: 'bottle', cost: 164.00 },
+          { item: 'Disinfectant Liquid', desc: '500 ml, concentrated', unit: 'bottle', cost: 429.00 },
+          { item: 'Disinfectant spray', desc: 'crisp linen scent, 510g', unit: 'can', cost: 663.00 },
+          { item: 'Doormat', desc: 'Cloth, medium', unit: 'piece', cost: 98.00 },
+          { item: 'Dustpan', desc: 'Big', unit: 'pack', cost: 62.00 },
+          { item: 'Fabric Conditioner', desc: '36 ml, antibac', unit: 'piece', cost: 12.00 },
+          { item: 'Facemask', desc: 'indoplas, disposable 3ply', unit: 'pouch', cost: 69.00 },
+          { item: 'Furniture Polish spray', desc: '330 ml', unit: 'box', cost: 495.00 },
+          { item: 'Garbage Bag', desc: '100s, 9x9x18 or 18x20, small, black', unit: 'can', cost: 163.00 },
+          { item: 'Garbage Bag', desc: '100s, 11x11x24 or 22x24, medium, black', unit: 'pack', cost: 285.00 },
+          { item: 'Glass Cleaner', desc: 'spray, fresh fragrance, 500ml', unit: 'pack', cost: 220.00 },
+          { item: 'Hand Glove', desc: 'latex, large, lemon scent', unit: 'bottle', cost: 172.00 },
+          { item: 'Hand Wash', desc: 'liquid refill, 420 ml', unit: 'piece', cost: 163.00 },
+          { item: 'Hand Towel', desc: 'white,10.5x18in, cotton', unit: 'pack', cost: 13.00 },
+          { item: 'Insect Killer Spray', desc: '500ml, waterbased', unit: 'can', cost: 518.00 },
+          { item: 'Powder Cleanser', desc: '396g with bleach', unit: 'can', cost: 104.00 },
+          { item: 'Powder Detergent', desc: '70 grams, cherry bloosom', unit: 'sachet', cost: 9.00 },
+          { item: 'Scouring Pad', desc: '75mmx75mmx30mm with sponge', unit: 'piece', cost: 31.00 },
+          { item: 'Tissue Paper', desc: '3 ply, 600 sheets', unit: 'piece', cost: 32.00 },
+          { item: 'Tissue Paper', desc: 'interfolded hand towels, 175 pulls', unit: 'piece', cost: 97.00 },
+          { item: 'Toilet Bowl Cleaning Strip', desc: 'Stick-on strip', unit: 'box', cost: 83.00 },
+          { item: 'Toilet Bowl Cleaner', desc: 'liquid, ultra-thick, 500ml', unit: 'bottle', cost: 145.00 },
+          { item: 'Toilet Deodorizer', desc: '50g, jasmine', unit: 'piece', cost: 45.00 },
+          { item: 'Toilet Deodorizer', desc: '50g with handle, sampaguita', unit: 'piece', cost: 60.00 },
+          { item: 'Toilet Floor Brush', desc: 'plastic', unit: 'piece', cost: 34.00 }
+        ]
+      },
+      {
+        label: 'Office Supplies',
+        items: [
+          { item: 'Ballpen', desc: 'Black, 0.3mm, ultra-fine rollerball pen, 12s', unit: 'pc', cost: 10.00 },
+          { item: 'Ballpen', desc: 'Black, 0.5mm, fine point pens, thermo-sensitive gel ink, 12s', unit: 'ream', cost: 150.00 },
+          { item: 'Ballpen', desc: 'Black, 0.5mm, grip liquid ink, 12s', unit: 'ream', cost: 190.00 },
+          { item: 'Ballpen', desc: 'Black, 0.7mm, grip liquid ink, 12s', unit: 'box', cost: 30.00 },
+          { item: 'Binder Clip', desc: '1 1/4"x32mm, 12s', unit: 'pc', cost: 5.00 },
+          { item: 'Binder Clip', desc: '1 5/8"x41mm, 12s', unit: 'pc', cost: 15.00 },
+          { item: 'Binder Clip', desc: '1"x25mm, 12s', unit: 'pc', cost: 15.00 },
+          { item: 'Binder Clip', desc: '2"x51mm, 12s', unit: 'pc', cost: 15.00 },
+          { item: 'Binder Clip', desc: '3/4"x19mm, 12s', unit: 'pc', cost: 15.00 }
+        ]
+      }
+    ];
+    
+    const tableBody = document.getElementById('tableBody');
+    
+    function addRow(item = { item: '', desc: '', unit: '', cost: 0 }, section = null) {
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td contenteditable>${item.item}</td>
+    <td contenteditable>${item.desc}</td>
+    <td contenteditable>${item.unit}</td>
+    <td><input type="number" step="0.01" value="${item.cost}" class="unitCost"></td>
+    <td><input type="number" class="begQty"></td><td><input class="begCost" readonly></td><td><input class="begAmt" readonly></td>
+    <td><input type="number" class="recQty"></td><td><input type="number" step="0.01" class="recCost"></td><td><input class="recAmt" readonly></td>
+    <td><input class="totalQty" readonly></td><td><input class="totalCost" readonly></td><td><input class="totalAmt" readonly></td>
+    
+    <!-- Issued Section -->
+    <td><input type="number" class="issQty"></td>
+    <td><input type="number" step="0.01" class="issCost"></td>
+    <td><input class="issAmt" readonly></td>
+
+    <td><input class="endQty" readonly></td><td><input class="endCost" readonly></td><td><input class="endAmt" readonly></td>
+    <td class="delete-btn" onclick="this.parentElement.remove(); recalculate();">🗑️</td>
+
+
+  `;
+  row.querySelectorAll('input').forEach(input => input.addEventListener('input', recalculate));
+
+  if (section) {
+    const headers = [...tableBody.querySelectorAll('.section-header')];
+    const targetHeader = headers.find(h => h.textContent.trim() === section);
+    if (targetHeader) {
+      let insertAfter = targetHeader.parentElement;
+      while (insertAfter.nextElementSibling && !insertAfter.nextElementSibling.classList.contains('divider-row') && !insertAfter.nextElementSibling.querySelector('.section-header')) {
+        insertAfter = insertAfter.nextElementSibling;
+      }
+      insertAfter.insertAdjacentElement('beforebegin', row);
+      return;
+    }
+  }
+  tableBody.appendChild(row);
+}
+
+    
+    function handleAddItem() {
+      const section = document.getElementById('sectionSelect').value;
+      addRow({}, section);
+    }
+    
+    function createTable() {
+      tableBody.innerHTML = '';
+      groupedItems.forEach(group => {
+        const groupHeader = document.createElement('tr');
+        groupHeader.innerHTML = `<td colspan="20" class="section-header">${group.label}</td>`;
+        tableBody.appendChild(groupHeader);
+    
+        group.items.forEach(item => addRow(item, group.label));
+    
+        const divider = document.createElement('tr');
+        divider.className = 'divider-row';
+        divider.innerHTML = '<td colspan="20"></td>';
+        tableBody.appendChild(divider);
+      });
+    }
+    
+    function recalculate() {
+  let recQty = 0, recAmt = 0, totalQty = 0, totalAmt = 0, issQty = 0, issAmt = 0, endQty = 0, endAmt = 0;
+  
+  let prevEndAmt = 0;  // To store the ending balance of the previous month
+
+  [...tableBody.querySelectorAll('tr')].forEach((row, index) => {
+    const unitCostEl = row.querySelector('.unitCost');
+    if (!unitCostEl) return;
+
+    const begQty = parseFloat(row.querySelector('.begQty')?.value) || 0;
+    const recQtyVal = parseFloat(row.querySelector('.recQty')?.value) || 0;
+    const issQtyVal = parseFloat(row.querySelector('.issQty')?.value) || 0;
+    const begCost = parseFloat(unitCostEl.value) || 0;
+    const recCostEl = row.querySelector('.recCost');
+    const recCost = parseFloat(recCostEl?.value) || 0;
+
+    // If there's a previous month's end amount, carry it over to the beginning balance
+    const begAmt = begQty * begCost;
+
+    const recAmtVal = recQtyVal * recCost;
+    const totalQtyVal = begQty + recQtyVal;
+    const averageCost = totalQtyVal > 0 ? (begAmt + recAmtVal) / totalQtyVal : 0;
+
+    const issAmtVal = issQtyVal * averageCost;
+    const endQtyVal = totalQtyVal - issQtyVal;
+    const endAmtVal = endQtyVal * averageCost;
+
+    // Update UI fields
+    row.querySelector('.begCost').value = begCost.toFixed(2);
+    row.querySelector('.begAmt').value = begAmt.toFixed(2);
+    row.querySelector('.recAmt').value = recAmtVal.toFixed(2);
+    row.querySelector('.totalQty').value = totalQtyVal.toFixed(2);
+    row.querySelector('.totalCost').value = averageCost.toFixed(2);
+    row.querySelector('.totalAmt').value = (totalQtyVal * averageCost).toFixed(2);
+    row.querySelector('.issCost').value = averageCost.toFixed(2);
+    row.querySelector('.issAmt').value = issAmtVal.toFixed(2);
+    row.querySelector('.endQty').value = endQtyVal > 0 ? endQtyVal.toFixed(2) : '';
+    row.querySelector('.endCost').value = endQtyVal > 0 ? averageCost.toFixed(2) : '';
+    row.querySelector('.endAmt').value = endQtyVal > 0 ? endAmtVal.toFixed(2) : '';
+
+    // Save the current month's ending balance for use in the next month's beginning balance
+    prevEndAmt = endAmtVal;
+
+    // Grand totals
+    recQty += recQtyVal;
+    recAmt += recAmtVal;
+    totalQty += totalQtyVal;
+    totalAmt += totalQtyVal * averageCost;
+    issQty += issQtyVal;
+    issAmt += issAmtVal;
+    endQty += endQtyVal > 0 ? endQtyVal : 0;
+    endAmt += endQtyVal > 0 ? endAmtVal : 0;
+  });
+
+  // Update footer totals
+  document.getElementById('totalReceiptsQty').textContent = recQty.toFixed(2);
+  document.getElementById('totalReceiptsAmount').textContent = recAmt.toFixed(2);
+  document.getElementById('totalTotalQty').textContent = totalQty.toFixed(2);
+  document.getElementById('totalTotalAmount').textContent = totalAmt.toFixed(2);
+  document.getElementById('totalIssuedQty').textContent = issQty.toFixed(2);
+  document.getElementById('totalIssuedAmount').textContent = issAmt.toFixed(2);
+  document.getElementById('totalEndingQty').textContent = endQty.toFixed(2);
+  document.getElementById('totalEndingAmount').textContent = endAmt.toFixed(2);
+}
+  
+    function saveData() {
+  const monthKey = document.getElementById('reportMonth').value;
+  if (!monthKey) return alert('Select a month first!');
+
+  const rows = [...tableBody.querySelectorAll('tr')].filter(row => row.querySelector('.unitCost'));
+  const data = rows.map(row => ({
+    unitCost: row.querySelector('.unitCost').value,
+    begQty: row.querySelector('.begQty').value,
+    recQty: row.querySelector('.recQty').value,
+    issQty: row.querySelector('.issQty').value,
+
+    // Save ending balance explicitly
+    endQty: row.querySelector('.endQty').value,
+    endCost: row.querySelector('.endCost').value,
+    endAmt: row.querySelector('.endAmt').value
+  }));
+
+  localStorage.setItem('inv_' + monthKey, JSON.stringify(data));
+  alert('Data saved for ' + monthKey);
+}
+
+    
+    //helper code for carrying ending balance to beginning balance
+      function getPreviousMonthKey(currentKey) {
+  const [year, month] = currentKey.split('-').map(Number);
+  const date = new Date(year, month - 1); // JS months are 0-indexed
+  date.setMonth(date.getMonth() - 1);
+  const prevYear = date.getFullYear();
+  const prevMonth = String(date.getMonth() + 1).padStart(2, '0');
+  return `${prevYear}-${prevMonth}`;
+}
+
+
+function loadPreviousMonthEndingToBeginning() {
+  const monthKey = document.getElementById('reportMonth').value;
+  const prevKey = getPreviousMonthKey(monthKey);
+  const prevData = JSON.parse(localStorage.getItem('inv_' + prevKey));
+
+  if (!prevData) return; // No previous data
+
+  const rows = [...tableBody.querySelectorAll('tr')].filter(row => row.querySelector('.unitCost'));
+
+  rows.forEach((row, i) => {
+    const prev = prevData[i];
+    if (!prev) return;
+
+    // Carry over ending balance to beginning
+    row.querySelector('.begQty').value = prev.endQty || '';
+    row.querySelector('.unitCost').value = prev.endCost || ''; // unit cost as beginning cost
+  });
+
+  recalculate();
+}
+
+
+    function loadData() {
+  createTable();
+  document.getElementById('reportMonth').addEventListener('change', () => {
+  createTable();
+  loadPreviousMonthEndingToBeginning();
+});
+  const saved = localStorage.getItem('inv_' + monthKey);
+  const prevMonthKey = getPreviousMonthKey(monthKey);
+  const prevSaved = localStorage.getItem('inv_' + prevMonthKey);
+
+  const rows = [...tableBody.querySelectorAll('tr')].filter(row => row.querySelector('.unitCost'));
+
+  if (saved) {
+    const data = JSON.parse(saved);
+    rows.forEach((row, i) => {
+      const item = data[i] || {};
+      row.querySelector('.unitCost').value = item.unitCost || '';
+      row.querySelector('.begQty').value = item.begQty || '';
+      row.querySelector('.recQty').value = item.recQty || '';
+      row.querySelector('.issQty').value = item.issQty || '';
+    });
+  } else if (prevSaved) {
+    const prevData = JSON.parse(prevSaved);
+    rows.forEach((row, i) => {
+      const prevItem = prevData[i] || {};
+
+            const endQty = parseFloat(prevItem.endQty || 0);
+      const endCost = parseFloat(prevItem.endCost || 0);
+      const endAmt = parseFloat(prevItem.endAmt || 0);
+
+
+      // Per item: Carry ending to beginning
+      row.querySelector('.begQty').value = endQty > 0 ? endQty.toFixed(2) : '';
+      row.querySelector('.unitCost').value = endCost.toFixed(2);
+      row.querySelector('.begCost').value = endCost.toFixed(2);
+      row.querySelector('.begAmt').value = endAmt.toFixed(2);
+    });
+  }
+
+  recalculate();
+}
+
+
+    
+    function exportToExcel() {
+      const originalTable = document.getElementById("inventoryTable");
+      const clonedTable = originalTable.cloneNode(true);
+    
+      clonedTable.querySelectorAll('input').forEach(input => {
+        const td = input.parentElement;
+        td.textContent = input.value;
+      });
+    
+      clonedTable.querySelectorAll('.delete-btn').forEach(cell => {
+        cell.textContent = '';
+      });
+    
+      const wb = XLSX.utils.table_to_book(clonedTable, { sheet: "Inventory" });
+      XLSX.writeFile(wb, "Supplies_Inventory_Report.xlsx");
+    }
+    
+    createTable();
+    </script>
+
+<footer class="footer">
+  <p>Exclusive in <strong>PIASO</strong> | Create by <strong>3'stan</strong></p>
+</footer>
+
+
+</body>
+</html>
